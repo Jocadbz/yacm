@@ -27,6 +27,9 @@ conf local ~/.config/i3/config i3config
 
 conf remote ~/.config/i3/config https://example.com/i3config
 // Yacm will download i3config from the url and move it into it's designated place.
+
+conf ssh ~/.config/i3/config user@local-server:~/i3config
+// Yacm will doenload the file using ssh and move it into it's designated place.
 ```
 
 If your path/url contains spaces (Come on, seriously?), you can use ""/'':

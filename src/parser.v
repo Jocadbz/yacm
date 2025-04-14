@@ -13,6 +13,7 @@ fn parse_config(path string) {
     // Initialize the remotes and local's array
     mut remotes := [][]string{}
     mut locals := [][]string{}
+    mut ssh := [][]string{}
 
     // Line count to track errors
     mut line_count := 0
@@ -52,6 +53,15 @@ fn parse_config(path string) {
                 }
                 remotes << [parts[2], parts[3]]
             }
+
+            if parts[1] == 'ssh' {
+				os.find_abs_path_of_executable('scp') or {
+					println("ERROR: On line ${line_count}, SSH was declared but scp is not available.")
+					exit(1)
+				}
+                ssh << [parts[2], parts[3]]
+            }
+
             if parts[1] == 'local' {
                 if os.exists(parts[3]) == false {
                     println("ERROR: On line ${line_count}, file ${parts[3]} does not exist.")
@@ -62,13 +72,13 @@ fn parse_config(path string) {
             // Add handling for 'local' if needed
         }
     }
-    task_runner(remotes, locals)
+    task_runner(remotes, locals, ssh)
 }
 
-fn task_runner(remotes [][]string, locals [][]string) {
+fn task_runner(remotes [][]string, locals [][]string, ssh [][]string) {
     // This is the number the progressbar module will use to interpret the number of steps.
     mut step_number := 0
-    pb := progressbar.new(remotes.len + locals.len, 50)
+    pb := progressbar.new(remotes.len + locals.len + ssh.len, 50)
     
     println("Starting task...")  // Initial message, will be overwritten
     
@@ -88,6 +98,24 @@ fn task_runner(remotes [][]string, locals [][]string) {
             println("Error while moving to path on ${os.expand_tilde_to_home(file[0])}: ${err}")
             exit(1)
         }
+    }
+    for file in ssh {
+        step_number = step_number + 1
+        message := "Cloning and moving ${os.base(file[0])}"
+        pb.update(step_number, message)
+        result := os.system("scp ${file[1]} ${os.base(file[0])}")
+        if result != 0 {
+			println("Apparent error while cloning SSH file ${os.base(file[0])} from ${file[1]}, skipping...")
+		} else {
+			os.mkdir_all(os.dir(os.expand_tilde_to_home(file[0]))) or {
+				println("Error while resolving path on ${os.dir(os.expand_tilde_to_home(file[0]))}: ${err}")
+				exit(1)
+			}
+			os.mv(os.base(file[0]), os.expand_tilde_to_home(file[0])) or {
+				println("Error while moving to path on ${os.expand_tilde_to_home(file[0])}: ${err}")
+				exit(1)
+			}
+		}
     }
     for file in locals {
         step_number = step_number + 1
